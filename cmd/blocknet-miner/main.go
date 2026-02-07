@@ -179,6 +179,11 @@ func main() {
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) { serveUIFile(w, r, "ui/index.html") })
 	mux.HandleFunc("GET /app.js", func(w http.ResponseWriter, r *http.Request) { serveUIFile(w, r, "ui/app.js") })
 	mux.HandleFunc("GET /style.css", func(w http.ResponseWriter, r *http.Request) { serveUIFile(w, r, "ui/style.css") })
+	mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) { serveUIFile(w, r, "ui/favicon.ico") })
+	mux.HandleFunc("GET /favicon-16.png", func(w http.ResponseWriter, r *http.Request) { serveUIFile(w, r, "ui/favicon-16.png") })
+	mux.HandleFunc("GET /favicon-32.png", func(w http.ResponseWriter, r *http.Request) { serveUIFile(w, r, "ui/favicon-32.png") })
+	mux.HandleFunc("GET /apple-touch-icon.png", func(w http.ResponseWriter, r *http.Request) { serveUIFile(w, r, "ui/apple-touch-icon.png") })
+	mux.HandleFunc("GET /blocknet.png", func(w http.ResponseWriter, r *http.Request) { serveUIFile(w, r, "ui/blocknet.png") })
 
 	// Local control
 	mux.HandleFunc("GET /local/state", func(w http.ResponseWriter, r *http.Request) {

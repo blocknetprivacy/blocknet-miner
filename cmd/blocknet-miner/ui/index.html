@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>blocknet miner</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <h1>blocknet <span class="d">miner</span></h1>
+    <p class="muted" id="stateLine">Loading…</p>
+
+    <main>
+      <section class="card">
+        <h2>daemon</h2>
+        <p class="d">Starts the bundled daemon in the background and proxies the local API.</p>
+
+        <div class="row">
+          <label>wallet password</label>
+          <input id="password" type="password" placeholder="Wallet password" />
+        </div>
+        <div class="row">
+          <label>mining threads</label>
+          <input id="threads" type="number" min="1" value="1" />
+        </div>
+        <div class="buttons">
+          <button id="applyThreadsBtn" class="secondary" title="Apply thread count to the daemon">apply threads</button>
+        </div>
+        <p class="d">argon2id uses ~2GB RAM per thread</p>
+
+        <h3>storage</h3>
+        <p class="d">New installs default to portable storage (next to this app bundle).</p>
+        <div class="buttons">
+          <button id="portableBtn" class="secondary" title="Use portable storage inside the app directory">use portable</button>
+          <button id="configBtn" class="secondary" title="Use OS config directory storage">use system</button>
+          <button id="saveWalletBtn" class="secondary" title="Choose where to create a new wallet file">create wallet file…</button>
+          <button id="pickWalletBtn" class="secondary" title="Pick an existing wallet file">choose wallet file</button>
+          <button id="pickDataBtn" class="secondary" title="Pick an existing chain/data directory">choose data dir</button>
+          <button id="recoverBtn" class="secondary" title="Recover a wallet from a 12-word seed">import seed…</button>
+        </div>
+        <p class="muted" id="storageDetails"></p>
+
+        <div class="buttons">
+          <button id="startBtn" title="Start the bundled blocknet daemon and unlock the wallet">start daemon</button>
+          <button id="stopBtn" class="secondary" title="Stop the daemon">stop daemon</button>
+          <button id="quitBtn" class="secondary" title="Stop the daemon and quit this app">quit app</button>
+        </div>
+        <p class="muted" id="daemonDetails"></p>
+      </section>
+
+      <section class="grid">
+        <section class="card">
+          <h2>node status</h2>
+          <div id="statusOut" class="kv">(not connected)</div>
+        </section>
+
+        <section class="card">
+          <h2>wallet</h2>
+          <p class="muted" id="walletHint"></p>
+          <div class="buttons">
+            <button id="seedBtn" class="secondary" title="Reveal the wallet recovery seed (requires password)">show recovery seed</button>
+          </div>
+          <div id="walletOut" class="kv">(not connected)</div>
+        </section>
+
+        <section class="card">
+          <h2>mining</h2>
+          <div class="buttons">
+            <button id="mineStartBtn" title="Start mining on this node">start mining</button>
+            <button id="mineStopBtn" class="secondary" title="Stop mining">stop mining</button>
+          </div>
+          <div id="miningOut" class="kv">(not connected)</div>
+        </section>
+      </section>
+
+      <footer>
+        <p class="d">local only · no telemetry</p>
+      </footer>
+    </main>
+
+    <div id="seedModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="seedTitle">
+      <div class="modalInner">
+        <h2 id="seedTitle">recovery seed</h2>
+        <p class="muted">
+          Anyone with this seed can steal your coins. Never share it, never enter it online. Write it down and store it offline.
+        </p>
+
+        <div class="row">
+          <label>wallet password</label>
+          <input id="seedPassword" type="password" placeholder="Re-enter wallet password" autocomplete="off" />
+        </div>
+
+        <div class="buttons">
+          <button id="seedRevealBtn">reveal seed</button>
+          <button id="seedCancelBtn" class="secondary">cancel</button>
+        </div>
+
+        <div id="seedOut" class="seed"></div>
+      </div>
+    </div>
+
+    <div id="recoverModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="recoverTitle">
+      <div class="modalInner">
+        <h2 id="recoverTitle">import seed</h2>
+        <p class="muted">
+          Recovery seed is highly sensitive. Never paste it into random websites. Only use this on a trusted machine.
+        </p>
+
+        <div class="row">
+          <label>12-word seed</label>
+          <textarea id="recoverMnemonic" rows="3" placeholder="twelve words separated by spaces" autocomplete="off"></textarea>
+        </div>
+
+        <div class="row">
+          <label>new password</label>
+          <input id="recoverPassword" type="password" placeholder="New wallet password" autocomplete="off" />
+        </div>
+        <div class="row">
+          <label>confirm</label>
+          <input id="recoverPassword2" type="password" placeholder="Confirm password" autocomplete="off" />
+        </div>
+
+        <div class="buttons">
+          <button id="recoverRunBtn">recover + start</button>
+          <button id="recoverCancelBtn" class="secondary">cancel</button>
+        </div>
+
+        <p class="muted">
+          Tip: choose a wallet file name first (Create wallet file…) so you don’t overwrite an existing wallet.
+        </p>
+      </div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

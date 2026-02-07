@@ -1,0 +1,237 @@
+/*
+  Styling intentionally mirrors the aesthetic of https://blocknetcrypto.com/:
+  - dark background
+  - monospace typography
+  - neon green accent
+  - simple boxes + dashed separators
+*/
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0a0a;
+  color: #b0b0b0;
+  font: 15px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  padding: 32px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+a { color: #af0; }
+a:hover { color: #cf3; }
+
+h1, h2, h3 {
+  color: #eee;
+  font-weight: normal;
+  margin: 32px 0 16px;
+}
+
+h1 { font-size: 24px; margin-top: 0; }
+
+h2 {
+  font-size: 18px;
+  border-bottom: 1px dashed #333;
+  padding-bottom: 8px;
+}
+
+h3 {
+  font-size: 15px;
+  color: #777;
+  margin: 18px 0 8px;
+  letter-spacing: 0.02em;
+}
+
+p { margin: 12px 0; }
+
+/* Helpers copied from the website */
+.g { color: #af0; }
+.d { color: #555; }
+
+/* App layout */
+main {
+  display: grid;
+  gap: 16px;
+}
+
+.card {
+  border: 1px solid #333;
+  padding: 20px;
+  background: #0d0d0d;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+label { color: #666; }
+
+input,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #222;
+  background: #050505;
+  color: #b0b0b0;
+  outline: none;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 68px;
+}
+
+input:focus {
+  border-color: #af0;
+}
+
+.buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+button {
+  padding: 10px 12px;
+  background: #111;
+  border: 1px solid #222;
+  color: #b0b0b0;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1a1a1a;
+  border-color: #af0;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: transparent;
+}
+
+/* Key/value tables (replaces raw JSON <pre> blocks) */
+.kv {
+  background: #050505;
+  border: 1px solid #222;
+  overflow-x: auto;
+  font-size: 13px;
+  margin: 0;
+  max-height: 420px;
+}
+
+.kv table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.kv th,
+.kv td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #111;
+  vertical-align: top;
+}
+
+.kv tr:last-child th,
+.kv tr:last-child td {
+  border-bottom: none;
+}
+
+.kv th {
+  width: 42%;
+  color: #666;
+  font-weight: normal;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.kv td {
+  color: #b0b0b0;
+  word-break: break-word;
+}
+
+.kv .sub {
+  display: block;
+  color: #555;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.kvText {
+  padding: 12px;
+  color: #666;
+}
+
+.muted {
+  color: #444;
+  font-size: 13px;
+}
+
+/* Recovery seed modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modalInner {
+  border: 1px solid #333;
+  padding: 20px;
+  background: #0d0d0d;
+  width: min(760px, 100%);
+}
+
+.seed {
+  margin-top: 12px;
+  background: #050505;
+  border: 1px solid #222;
+  padding: 12px;
+}
+
+.seedMnemonic {
+  color: #888;
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.seedWords {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.seedWord {
+  border: 1px solid #111;
+  background: #070707;
+  padding: 8px 10px;
+  color: #b0b0b0;
+}
+
+@media (max-width: 600px) {
+  body { padding: 16px; }
+  h1 { font-size: 20px; }
+  .row { grid-template-columns: 1fr; }
+}

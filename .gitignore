@@ -1,0 +1,7 @@
+/blocknet-desktop
+/blocknet-miner
+/dist/
+/data/
+/tmp/
+*.log
+.DS_Store

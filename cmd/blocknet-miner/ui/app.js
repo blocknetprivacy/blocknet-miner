@@ -55,7 +55,7 @@ function formatValue(key, val) {
   }
 
   if (key === "hashrate" && typeof val === "number") {
-    return { main: `${val.toFixed(4)} h/s` };
+    return { main: `${val.toFixed(4)} H/s` };
   }
 
   if (key === "started_at" && typeof val === "string") {
@@ -515,6 +515,9 @@ async function revealSeed() {
 }
 
 document.getElementById("startBtn").addEventListener("click", () => onStart().catch(alert));
+document.getElementById("password").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") onStart().catch(alert);
+});
 document.getElementById("stopBtn").addEventListener("click", () => onStop().catch(alert));
 document.getElementById("mineStartBtn").addEventListener("click", () => mineStart().catch(alert));
 document.getElementById("mineStopBtn").addEventListener("click", () => mineStop().catch(alert));

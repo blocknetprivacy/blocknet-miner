@@ -211,6 +211,10 @@ button.secondary {
   z-index: 1000;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .modal.hidden {
   display: none;
 }

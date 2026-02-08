@@ -149,6 +149,9 @@ function renderSeed(el, { mnemonic, words }) {
 
 const STORAGE_PROMPT_KEY = "blocknetMinerStoragePrompted";
 let autoPromptingStorage = false;
+let daemonConnectedOnce = false;
+let daemonStartedAt = 0;
+const CONNECTING_GRACE_MS = 15000;
 
 async function maybePromptStorageSetup(state) {
   if (autoPromptingStorage) return false;
@@ -247,9 +250,17 @@ async function refresh() {
     }
   }
 
+  const walletActions = document.getElementById("walletActions");
+  const miningActions = document.getElementById("miningActions");
+
   if (!state.started) {
     mineStartBtn.disabled = true;
     mineStopBtn.disabled = true;
+    daemonConnectedOnce = false;
+    daemonStartedAt = 0;
+
+    walletActions.classList.add("hidden");
+    miningActions.classList.add("hidden");
 
     setBoxText(statusEl, "(not connected)");
     setBoxText(walletEl, "(not connected)");
@@ -257,8 +268,14 @@ async function refresh() {
     return;
   }
 
+  if (!daemonStartedAt) daemonStartedAt = Date.now();
+  const connecting = !daemonConnectedOnce && (Date.now() - daemonStartedAt) < CONNECTING_GRACE_MS;
+
   try {
     const status = await jfetch("/daemon/api/status");
+    daemonConnectedOnce = true;
+    walletActions.classList.remove("hidden");
+    miningActions.classList.remove("hidden");
     renderKV(statusEl, status, {
       order: [
         "chain_height",
@@ -273,7 +290,7 @@ async function refresh() {
       ],
     });
   } catch (e) {
-    setBoxText(statusEl, `error: ${e.message}`);
+    setBoxText(statusEl, connecting ? "connecting…" : `error: ${e.message}`);
   }
 
   try {
@@ -294,7 +311,7 @@ async function refresh() {
       ],
     });
   } catch (e) {
-    setBoxText(walletEl, `error: ${e.message}`);
+    setBoxText(walletEl, connecting ? "connecting…" : `error: ${e.message}`);
   }
 
   try {
@@ -307,7 +324,7 @@ async function refresh() {
     mineStartBtn.disabled = !!mining.running;
     mineStopBtn.disabled = !mining.running;
   } catch (e) {
-    setBoxText(miningEl, `error: ${e.message}`);
+    setBoxText(miningEl, connecting ? "connecting…" : `error: ${e.message}`);
   }
 }
 

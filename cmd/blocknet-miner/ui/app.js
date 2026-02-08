@@ -31,6 +31,20 @@ function atomicToBNT(n) {
   return (v / 1e8).toFixed(8);
 }
 
+function timeAgo(dateStr) {
+  const then = new Date(dateStr);
+  if (isNaN(then)) return null;
+  const seconds = Math.floor((Date.now() - then) / 1000);
+  if (seconds < 5) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60}m ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ${hours % 24}h ago`;
+}
+
 function formatValue(key, val) {
   // Known atomic-unit fields.
   if (key === "spendable" || key === "pending" || key === "total" || key === "amount") {
@@ -38,6 +52,15 @@ function formatValue(key, val) {
     if (bnt != null) {
       return { main: `${bnt} BNT`, sub: `${val} atomic` };
     }
+  }
+
+  if (key === "hashrate" && typeof val === "number") {
+    return { main: `${val.toFixed(4)} h/s` };
+  }
+
+  if (key === "started_at" && typeof val === "string") {
+    const ago = timeAgo(val);
+    if (ago) return { main: ago, title: val };
   }
 
   if (val == null) return { main: "-" };
@@ -91,6 +114,7 @@ function renderKV(el, obj, { order = [] } = {}) {
 
     const main = document.createElement("span");
     main.textContent = formatted.main;
+    if (formatted.title) td.title = formatted.title;
     td.appendChild(main);
 
     if (formatted.sub) {

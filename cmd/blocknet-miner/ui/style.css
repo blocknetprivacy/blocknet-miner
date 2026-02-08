@@ -151,6 +151,11 @@ button.secondary {
   margin: 0;
 }
 
+.kv.kv-fixed {
+  min-height: 377px;
+  max-height: 377px;
+}
+
 .kv table {
   width: 100%;
   border-collapse: collapse;
@@ -163,10 +168,6 @@ button.secondary {
   vertical-align: top;
 }
 
-.kv tr:last-child th,
-.kv tr:last-child td {
-  border-bottom: none;
-}
 
 .kv th {
   width: 42%;
@@ -179,6 +180,29 @@ button.secondary {
 .kv td {
   color: #b0b0b0;
   word-break: break-word;
+}
+
+.kv td:has(.copy-btn) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.copy-btn {
+  margin-left: 8px;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  font-size: 12px;
+  border: 1px solid #333;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.copy-btn:hover {
+  color: #af0;
+  border-color: #af0;
 }
 
 .kv .sub {

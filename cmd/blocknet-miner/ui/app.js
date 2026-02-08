@@ -45,13 +45,28 @@ function timeAgo(dateStr) {
   return `${days}d ${hours % 24}h ago`;
 }
 
+function truncateId(s, head = 6, tail = 6) {
+  if (s.length <= head + tail + 3) return s;
+  return `${s.slice(0, head)}…${s.slice(-tail)}`;
+}
+
 function formatValue(key, val) {
-  // Known atomic-unit fields.
+  // Known atomic-unit fields — show 4 decimals, atomic on hover.
   if (key === "spendable" || key === "pending" || key === "total" || key === "amount") {
     const bnt = atomicToBNT(val);
     if (bnt != null) {
-      return { main: `${bnt} BNT`, sub: `${val} atomic` };
+      const short = parseFloat(bnt).toFixed(4);
+      return { main: `${short} BNT`, title: `${val} atomic` };
     }
+  }
+
+  // Truncate long IDs with click-to-copy.
+  if (key === "peer_id" && typeof val === "string" && val.length > 12) {
+    return { main: truncateId(val, 4, 4), title: val, copyable: val };
+  }
+
+  if (key === "address" && typeof val === "string" && val.length > 12) {
+    return { main: truncateId(val, 4, 4), title: val, copyable: val };
   }
 
   if (key === "hashrate" && typeof val === "number") {
@@ -116,6 +131,20 @@ function renderKV(el, obj, { order = [] } = {}) {
     main.textContent = formatted.main;
     if (formatted.title) td.title = formatted.title;
     td.appendChild(main);
+
+    if (formatted.copyable) {
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.title = "Copy to clipboard";
+      copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11V2.5A.5.5 0 013.5 2H11"/></svg>';
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(formatted.copyable).then(() => {
+          copyBtn.textContent = "\u2713";
+          setTimeout(() => { copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11V2.5A.5.5 0 013.5 2H11"/></svg>'; }, 1500);
+        });
+      });
+      td.appendChild(copyBtn);
+    }
 
     if (formatted.sub) {
       const sub = document.createElement("span");
@@ -286,6 +315,10 @@ async function refresh() {
     walletActions.classList.add("hidden");
     miningActions.classList.add("hidden");
 
+    statusEl.classList.remove("kv-fixed");
+    walletEl.classList.remove("kv-fixed");
+    miningEl.classList.remove("kv-fixed");
+
     setBoxText(statusEl, "(not connected)");
     setBoxText(walletEl, "(not connected)");
     setBoxText(miningEl, "(not connected)");
@@ -300,6 +333,9 @@ async function refresh() {
     daemonConnectedOnce = true;
     walletActions.classList.remove("hidden");
     miningActions.classList.remove("hidden");
+    statusEl.classList.add("kv-fixed");
+    walletEl.classList.add("kv-fixed");
+    miningEl.classList.add("kv-fixed");
     renderKV(statusEl, status, {
       order: [
         "chain_height",

@@ -65,6 +65,25 @@ main {
   gap: 16px;
 }
 
+.grid > .card {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-bottom {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.card-bottom .buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+}
+
+.card-bottom .buttons button {
+  width: 100%;
+}
+
 .row {
   display: grid;
   grid-template-columns: 140px 1fr;
@@ -130,7 +149,11 @@ button.secondary {
   overflow-x: auto;
   font-size: 13px;
   margin: 0;
-  max-height: 420px;
+}
+
+.kv.kv-fixed {
+  min-height: 377px;
+  max-height: 377px;
 }
 
 .kv table {
@@ -145,10 +168,6 @@ button.secondary {
   vertical-align: top;
 }
 
-.kv tr:last-child th,
-.kv tr:last-child td {
-  border-bottom: none;
-}
 
 .kv th {
   width: 42%;
@@ -161,6 +180,29 @@ button.secondary {
 .kv td {
   color: #b0b0b0;
   word-break: break-word;
+}
+
+.kv td:has(.copy-btn) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.copy-btn {
+  margin-left: 8px;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  font-size: 12px;
+  border: 1px solid #333;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.copy-btn:hover {
+  color: #af0;
+  border-color: #af0;
 }
 
 .kv .sub {
@@ -190,6 +232,10 @@ button.secondary {
   justify-content: center;
   padding: 20px;
   z-index: 1000;
+}
+
+.hidden {
+  display: none !important;
 }
 
 .modal.hidden {

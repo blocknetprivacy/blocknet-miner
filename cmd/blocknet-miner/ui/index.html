@@ -60,20 +60,24 @@
 
         <section class="card">
           <h2>wallet</h2>
-          <p class="muted" id="walletHint"></p>
-          <div class="buttons">
-            <button id="seedBtn" class="secondary" title="Reveal the wallet recovery seed (requires password)">show recovery seed</button>
-          </div>
           <div id="walletOut" class="kv">(not connected)</div>
+          <div class="card-bottom hidden" id="walletActions">
+            <p class="muted" id="walletHint"></p>
+            <div class="buttons">
+              <button id="seedBtn" class="secondary" title="Reveal the wallet recovery seed (requires password)">show recovery seed</button>
+            </div>
+          </div>
         </section>
 
         <section class="card">
           <h2>mining</h2>
-          <div class="buttons">
-            <button id="mineStartBtn" title="Start mining on this node">start mining</button>
-            <button id="mineStopBtn" class="secondary" title="Stop mining">stop mining</button>
-          </div>
           <div id="miningOut" class="kv">(not connected)</div>
+          <div class="card-bottom hidden" id="miningActions">
+            <div class="buttons">
+              <button id="mineStartBtn" title="Start mining on this node">start mining</button>
+              <button id="mineStopBtn" class="secondary" title="Stop mining">stop mining</button>
+            </div>
+          </div>
         </section>
       </section>
 

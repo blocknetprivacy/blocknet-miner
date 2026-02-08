@@ -31,13 +31,51 @@ function atomicToBNT(n) {
   return (v / 1e8).toFixed(8);
 }
 
+function timeAgo(dateStr) {
+  const then = new Date(dateStr);
+  if (isNaN(then)) return null;
+  const seconds = Math.floor((Date.now() - then) / 1000);
+  if (seconds < 5) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60}m ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ${hours % 24}h ago`;
+}
+
+function truncateId(s, head = 6, tail = 6) {
+  if (s.length <= head + tail + 3) return s;
+  return `${s.slice(0, head)}…${s.slice(-tail)}`;
+}
+
 function formatValue(key, val) {
-  // Known atomic-unit fields.
+  // Known atomic-unit fields — show 4 decimals, atomic on hover.
   if (key === "spendable" || key === "pending" || key === "total" || key === "amount") {
     const bnt = atomicToBNT(val);
     if (bnt != null) {
-      return { main: `${bnt} BNT`, sub: `${val} atomic` };
+      const short = parseFloat(bnt).toFixed(4);
+      return { main: `${short} BNT`, title: `${val} atomic` };
     }
+  }
+
+  // Truncate long IDs with click-to-copy.
+  if (key === "peer_id" && typeof val === "string" && val.length > 12) {
+    return { main: truncateId(val, 4, 4), title: val, copyable: val };
+  }
+
+  if (key === "address" && typeof val === "string" && val.length > 12) {
+    return { main: truncateId(val, 4, 4), title: val, copyable: val };
+  }
+
+  if (key === "hashrate" && typeof val === "number") {
+    return { main: `${val.toFixed(4)} H/s` };
+  }
+
+  if (key === "started_at" && typeof val === "string") {
+    const ago = timeAgo(val);
+    if (ago) return { main: ago, title: val };
   }
 
   if (val == null) return { main: "-" };
@@ -91,7 +129,22 @@ function renderKV(el, obj, { order = [] } = {}) {
 
     const main = document.createElement("span");
     main.textContent = formatted.main;
+    if (formatted.title) td.title = formatted.title;
     td.appendChild(main);
+
+    if (formatted.copyable) {
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.title = "Copy to clipboard";
+      copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11V2.5A.5.5 0 013.5 2H11"/></svg>';
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(formatted.copyable).then(() => {
+          copyBtn.textContent = "\u2713";
+          setTimeout(() => { copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11V2.5A.5.5 0 013.5 2H11"/></svg>'; }, 1500);
+        });
+      });
+      td.appendChild(copyBtn);
+    }
 
     if (formatted.sub) {
       const sub = document.createElement("span");
@@ -149,6 +202,9 @@ function renderSeed(el, { mnemonic, words }) {
 
 const STORAGE_PROMPT_KEY = "blocknetMinerStoragePrompted";
 let autoPromptingStorage = false;
+let daemonConnectedOnce = false;
+let daemonStartedAt = 0;
+const CONNECTING_GRACE_MS = 15000;
 
 async function maybePromptStorageSetup(state) {
   if (autoPromptingStorage) return false;
@@ -247,9 +303,21 @@ async function refresh() {
     }
   }
 
+  const walletActions = document.getElementById("walletActions");
+  const miningActions = document.getElementById("miningActions");
+
   if (!state.started) {
     mineStartBtn.disabled = true;
     mineStopBtn.disabled = true;
+    daemonConnectedOnce = false;
+    daemonStartedAt = 0;
+
+    walletActions.classList.add("hidden");
+    miningActions.classList.add("hidden");
+
+    statusEl.classList.remove("kv-fixed");
+    walletEl.classList.remove("kv-fixed");
+    miningEl.classList.remove("kv-fixed");
 
     setBoxText(statusEl, "(not connected)");
     setBoxText(walletEl, "(not connected)");
@@ -257,11 +325,17 @@ async function refresh() {
     return;
   }
 
-  mineStartBtn.disabled = false;
-  mineStopBtn.disabled = false;
+  if (!daemonStartedAt) daemonStartedAt = Date.now();
+  const connecting = !daemonConnectedOnce && (Date.now() - daemonStartedAt) < CONNECTING_GRACE_MS;
 
   try {
     const status = await jfetch("/daemon/api/status");
+    daemonConnectedOnce = true;
+    walletActions.classList.remove("hidden");
+    miningActions.classList.remove("hidden");
+    statusEl.classList.add("kv-fixed");
+    walletEl.classList.add("kv-fixed");
+    miningEl.classList.add("kv-fixed");
     renderKV(statusEl, status, {
       order: [
         "chain_height",
@@ -276,7 +350,7 @@ async function refresh() {
       ],
     });
   } catch (e) {
-    setBoxText(statusEl, `error: ${e.message}`);
+    setBoxText(statusEl, connecting ? "connecting…" : `error: ${e.message}`);
   }
 
   try {
@@ -297,7 +371,7 @@ async function refresh() {
       ],
     });
   } catch (e) {
-    setBoxText(walletEl, `error: ${e.message}`);
+    setBoxText(walletEl, connecting ? "connecting…" : `error: ${e.message}`);
   }
 
   try {
@@ -310,7 +384,7 @@ async function refresh() {
     mineStartBtn.disabled = !!mining.running;
     mineStopBtn.disabled = !mining.running;
   } catch (e) {
-    setBoxText(miningEl, `error: ${e.message}`);
+    setBoxText(miningEl, connecting ? "connecting…" : `error: ${e.message}`);
   }
 }
 
@@ -477,6 +551,9 @@ async function revealSeed() {
 }
 
 document.getElementById("startBtn").addEventListener("click", () => onStart().catch(alert));
+document.getElementById("password").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") onStart().catch(alert);
+});
 document.getElementById("stopBtn").addEventListener("click", () => onStop().catch(alert));
 document.getElementById("mineStartBtn").addEventListener("click", () => mineStart().catch(alert));
 document.getElementById("mineStopBtn").addEventListener("click", () => mineStop().catch(alert));

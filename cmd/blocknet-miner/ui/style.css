@@ -65,6 +65,25 @@ main {
   gap: 16px;
 }
 
+.grid > .card {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-bottom {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.card-bottom .buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+}
+
+.card-bottom .buttons button {
+  width: 100%;
+}
+
 .row {
   display: grid;
   grid-template-columns: 140px 1fr;

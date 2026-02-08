@@ -257,9 +257,6 @@ async function refresh() {
     return;
   }
 
-  mineStartBtn.disabled = false;
-  mineStopBtn.disabled = false;
-
   try {
     const status = await jfetch("/daemon/api/status");
     renderKV(statusEl, status, {

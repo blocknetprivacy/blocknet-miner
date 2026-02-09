@@ -532,6 +532,11 @@ async function runRecover() {
   await refresh();
 }
 
+async function syncWallet() {
+  await jfetch("/daemon/api/wallet/sync", { method: "POST" });
+  await refresh();
+}
+
 async function revealSeed() {
   const password = seedPassword.value;
   if (!password || !password.trim()) throw new Error("password required");
@@ -560,6 +565,7 @@ document.getElementById("mineStopBtn").addEventListener("click", () => mineStop(
 document.getElementById("applyThreadsBtn").addEventListener("click", () => applyThreads().catch(alert));
 document.getElementById("quitBtn").addEventListener("click", () => quitApp().catch(alert));
 
+document.getElementById("syncWalletBtn").addEventListener("click", () => syncWallet().catch(alert));
 document.getElementById("seedBtn").addEventListener("click", () => openSeedModal());
 document.getElementById("seedCancelBtn").addEventListener("click", () => closeSeedModal());
 document.getElementById("seedRevealBtn").addEventListener("click", () => revealSeed().catch(alert));

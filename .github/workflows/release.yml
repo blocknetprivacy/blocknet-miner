@@ -14,83 +14,87 @@ jobs:
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
-            blocknet_arch: amd64-linux
             ext: ""
-          - os: ubuntu-latest
+            cross: false
+          - os: ubuntu-24.04-arm
             goos: linux
             goarch: arm64
-            blocknet_arch: arm64-linux
             ext: ""
-          - os: ubuntu-latest
-            goos: darwin
-            goarch: amd64
-            blocknet_arch: amd64-darwin
-            ext: ""
-          - os: ubuntu-latest
+            cross: false
+          - os: macos-latest
             goos: darwin
             goarch: arm64
-            blocknet_arch: arm64-darwin
             ext: ""
-          - os: ubuntu-latest
+            cross: false
+          - os: windows-latest
             goos: windows
             goarch: amd64
-            blocknet_arch: amd64-windows
             ext: ".exe"
+            cross: false
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout
+      - name: Checkout blocknet-miner
         uses: actions/checkout@v4
+
+      - name: Checkout blocknet
+        uses: actions/checkout@v4
+        with:
+          repository: blocknetprivacy/blocknet
+          path: blocknet
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
 
-      - name: Get blocknet release info
-        id: blocknet
-        run: |
-          RELEASE_DATA=$(curl -s https://api.github.com/repos/blocknetprivacy/blocknet/releases/latest)
-          VERSION=$(echo "$RELEASE_DATA" | jq -r '.tag_name')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - name: Set up Rust
+        uses: dtolnay/rust-action@stable
 
-      - name: Download blocknet binary
+      - name: Build blocknet (Unix)
+        if: matrix.goos != 'windows'
+        working-directory: blocknet
         run: |
-          VERSION="${{ steps.blocknet.outputs.version }}"
-          VERSION_NUM="${VERSION#v}"
-          ASSET_NAME="blocknet-${{ matrix.blocknet_arch }}-${VERSION_NUM}.zip"
-          DOWNLOAD_URL="https://github.com/blocknetprivacy/blocknet/releases/download/${VERSION}/${ASSET_NAME}"
-          echo "Downloading $DOWNLOAD_URL"
-          curl -L -o blocknet.zip "$DOWNLOAD_URL"
-          unzip blocknet.zip -d blocknet-bin
+          cd crypto-rs && cargo build --release
+          cd ..
+          CGO_ENABLED=1 go build -o blocknet .
+
+      - name: Build blocknet (Windows)
+        if: matrix.goos == 'windows'
+        working-directory: blocknet
+        shell: bash
+        run: |
+          cd crypto-rs && cargo build --release
+          cd ..
+          CGO_ENABLED=1 go build -o blocknet.exe .
 
       - name: Build blocknet-miner
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
+        shell: bash
         run: |
           go build -o blocknet-miner${{ matrix.ext }} ./cmd/blocknet-miner
 
-      - name: Package release
+      - name: Package release (Unix)
+        if: matrix.goos != 'windows'
         run: |
           mkdir -p dist
-          cp blocknet-miner${{ matrix.ext }} dist/
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            cp blocknet-bin/blocknet.exe dist/blocknetd.exe
-          else
-            cp blocknet-bin/blocknet dist/blocknetd
-            chmod +x dist/blocknetd dist/blocknet-miner
-          fi
-
+          cp blocknet-miner dist/
+          cp blocknet/blocknet dist/blocknetd
+          chmod +x dist/blocknetd dist/blocknet-miner
           ARCHIVE_NAME="blocknet-miner-${{ matrix.goos }}-${{ matrix.goarch }}"
-          cd dist
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            zip "../${ARCHIVE_NAME}.zip" *
-          else
-            tar -czvf "../${ARCHIVE_NAME}.tar.gz" *
-          fi
+          cd dist && tar -czvf "../${ARCHIVE_NAME}.tar.gz" *
+
+      - name: Package release (Windows)
+        if: matrix.goos == 'windows'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp blocknet-miner.exe dist/
+          cp blocknet/blocknet.exe dist/blocknetd.exe
+          ARCHIVE_NAME="blocknet-miner-${{ matrix.goos }}-${{ matrix.goarch }}"
+          cd dist && 7z a "../${ARCHIVE_NAME}.zip" *
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

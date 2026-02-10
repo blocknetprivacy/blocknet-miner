@@ -448,7 +448,14 @@ func (s *appState) startDaemon(password string, threads int) error {
 }
 
 func (s *appState) recoverWallet(mnemonic, password string, threads int) error {
-	return s.startDaemonInternal(mnemonic, password, threads)
+	// First, create/recover the wallet file using the CLI-style flow.
+	// This mirrors `blocknet --recover` behavior without changing the daemon.
+	if err := s.runRecoveryCLI(mnemonic, password); err != nil {
+		return err
+	}
+
+	// Then start the daemon in headless API mode and load the recovered wallet.
+	return s.startDaemonInternal("", password, threads)
 }
 
 func (s *appState) startDaemonInternal(mnemonic, password string, threads int) error {
@@ -458,12 +465,6 @@ func (s *appState) startDaemonInternal(mnemonic, password string, threads int) e
 		return nil
 	}
 	s.mu.Unlock()
-
-	recoverMode := strings.TrimSpace(mnemonic) != ""
-	walletExists := fileExists(s.walletFile)
-	if recoverMode && walletExists {
-		return fmt.Errorf("wallet already exists at %s", s.walletFile)
-	}
 
 	if err := os.MkdirAll(s.dataDir, 0o700); err != nil {
 		return fmt.Errorf("create data dir: %w", err)
@@ -493,15 +494,8 @@ func (s *appState) startDaemonInternal(mnemonic, password string, threads int) e
 		"--listen", s.listenAddr,
 		"--api", s.daemonAPI,
 	}
-	if recoverMode {
-		args = append(args, "--recover")
-	}
 
 	cmd := exec.Command(daemonBin, args...)
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("stdin pipe: %w", err)
-	}
 	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
 
@@ -510,23 +504,6 @@ func (s *appState) startDaemonInternal(mnemonic, password string, threads int) e
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start daemon: %w", err)
 	}
-
-	// Feed prompts.
-	go func() {
-		defer stdin.Close()
-
-		if recoverMode {
-			_, _ = io.WriteString(stdin, mnemonic+"\n"+password+"\n"+password+"\n")
-			return
-		}
-
-		// Normal mode: once for existing wallet, twice for new wallet.
-		if walletExists {
-			_, _ = io.WriteString(stdin, password+"\n")
-			return
-		}
-		_, _ = io.WriteString(stdin, password+"\n"+password+"\n")
-	}()
 
 	// Consume output so the daemon can't block if it gets chatty.
 	go drain("daemon-stdout", stdout)
@@ -560,6 +537,12 @@ func (s *appState) startDaemonInternal(mnemonic, password string, threads int) e
 	s.mu.Lock()
 	s.token = tok
 	s.mu.Unlock()
+
+	// Load (or create+load) the wallet via the authenticated API.
+	if err := s.loadWalletViaAPI(ctx, password); err != nil {
+		_ = s.stopDaemon()
+		return err
+	}
 
 	// Apply thread count immediately.
 	_ = s.setMiningThreads(ctx, threads)
@@ -608,6 +591,47 @@ func (s *appState) setMiningThreads(ctx context.Context, threads int) error {
 	return nil
 }
 
+// loadWalletViaAPI calls the daemon's authenticated /api/wallet/load endpoint.
+// This replaces the old stdin-based password prompts in daemon mode.
+func (s *appState) loadWalletViaAPI(ctx context.Context, password string) error {
+	password = strings.TrimSpace(password)
+	if password == "" {
+		return fmt.Errorf("password required")
+	}
+
+	s.mu.RLock()
+	api := s.daemonAPI
+	tok := s.token
+	s.mu.RUnlock()
+
+	if tok == "" {
+		return fmt.Errorf("no api token")
+	}
+
+	body := strings.NewReader(fmt.Sprintf(`{"password": %q}`, password))
+	req, _ := http.NewRequestWithContext(ctx, "POST", "http://"+api+"/api/wallet/load", body)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("load wallet: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 409 = wallet already loaded – treat as success for idempotency / older daemons.
+	if resp.StatusCode == http.StatusConflict {
+		return nil
+	}
+
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("load wallet failed: %s", strings.TrimSpace(string(b)))
+	}
+
+	return nil
+}
+
 func (s *appState) stopDaemon() error {
 	s.mu.Lock()
 	cmd := s.cmd
@@ -637,6 +661,114 @@ func (s *appState) stopDaemon() error {
 	s.token = ""
 	s.mu.Unlock()
 	return nil
+}
+
+// runRecoveryCLI mirrors `blocknet --recover` by running the bundled daemon
+// in interactive recovery mode to create a wallet file from a mnemonic.
+// Once the wallet file exists, the main daemon process can be started in
+// headless API mode and the wallet loaded via /api/wallet/load.
+func (s *appState) runRecoveryCLI(mnemonic, password string) error {
+	mnemonic = strings.Join(strings.Fields(mnemonic), " ")
+	if mnemonic == "" {
+		return fmt.Errorf("mnemonic required")
+	}
+	password = strings.TrimSpace(password)
+	if password == "" {
+		return fmt.Errorf("password required")
+	}
+
+	// Snapshot paths under lock.
+	s.mu.RLock()
+	dataDir := s.dataDir
+	walletFile := s.walletFile
+	listenAddr := s.listenAddr
+	s.mu.RUnlock()
+
+	if fileExists(walletFile) {
+		return fmt.Errorf("wallet already exists at %s", walletFile)
+	}
+
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		return fmt.Errorf("create data dir: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(walletFile), 0o700); err != nil {
+		return fmt.Errorf("create wallet dir: %w", err)
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("find executable: %w", err)
+	}
+	exeDir := filepath.Dir(exe)
+
+	daemonBin, err := findBundledDaemon(exeDir)
+	if err != nil {
+		return err
+	}
+
+	args := []string{
+		"--wallet", walletFile,
+		"--data", dataDir,
+		"--listen", listenAddr,
+		"--recover",
+	}
+
+	cmd := exec.Command(daemonBin, args...)
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("stdin pipe (recover): %w", err)
+	}
+	stdout, _ := cmd.StdoutPipe()
+	stderr, _ := cmd.StderrPipe()
+
+	setProcAttrs(cmd)
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start recover process: %w", err)
+	}
+
+	// Feed mnemonic + password prompts just like the interactive CLI.
+	go func() {
+		defer stdin.Close()
+		_, _ = io.WriteString(stdin, mnemonic+"\n"+password+"\n"+password+"\n")
+	}()
+
+	// Drain output so the process can't block.
+	go drain("recover-stdout", stdout)
+	go drain("recover-stderr", stderr)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	t := time.NewTicker(250 * time.Millisecond)
+	defer t.Stop()
+
+	for {
+		select {
+		case err := <-done:
+			if err != nil {
+				return fmt.Errorf("wallet recovery failed: %w", err)
+			}
+			if !fileExists(walletFile) {
+				return fmt.Errorf("wallet recovery exited but wallet not found at %s", walletFile)
+			}
+			return nil
+
+		case <-t.C:
+			if fi, err := os.Stat(walletFile); err == nil && fi.Size() > 0 {
+				// Wallet file exists and is non-empty – we can stop the helper process.
+				_ = interruptProcess(cmd)
+				return nil
+			}
+
+		case <-ctx.Done():
+			_ = killProcess(cmd)
+			return fmt.Errorf("wallet recovery timed out")
+		}
+	}
 }
 
 func drain(name string, r io.Reader) {

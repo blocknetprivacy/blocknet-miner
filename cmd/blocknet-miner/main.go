@@ -832,6 +832,34 @@ func findBundledDaemon(dir string) (string, error) {
 	return "", fmt.Errorf("bundled daemon binary not found next to launcher (expected blocknetd or blocknet in %s)", dir)
 }
 
+func windowsPowerShellPath() (string, error) {
+	// Prefer pwsh if installed, otherwise Windows PowerShell.
+	for _, candidate := range []string{"pwsh", "pwsh.exe", "powershell", "powershell.exe"} {
+		if p, err := exec.LookPath(candidate); err == nil {
+			return p, nil
+		}
+	}
+
+	// If the PATH is weird (e.g. launched from an environment without System32),
+	// fall back to the standard install location.
+	sysRoot := os.Getenv("SystemRoot")
+	if strings.TrimSpace(sysRoot) == "" {
+		sysRoot = `C:\Windows`
+	}
+
+	for _, p := range []string{
+		filepath.Join(sysRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+		// For 32-bit processes on 64-bit Windows, System32 is redirected. Sysnative bypasses redirection.
+		filepath.Join(sysRoot, "Sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
+	} {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+
+	return "", fmt.Errorf("powershell not found")
+}
+
 func pickFile(title, initialPath string) (string, error) {
 	switch runtime.GOOS {
 	case "linux":
@@ -889,9 +917,9 @@ func pickFile(title, initialPath string) (string, error) {
 
 	case "windows":
 		// Use PowerShell + WinForms dialogs.
-		ps := "powershell"
-		if _, err := exec.LookPath(ps); err != nil {
-			return "", fmt.Errorf("powershell not found")
+		ps, err := windowsPowerShellPath()
+		if err != nil {
+			return "", err
 		}
 
 		q := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
@@ -908,9 +936,13 @@ func pickFile(title, initialPath string) (string, error) {
 
 		out, err := exec.Command(ps, "-NoProfile", "-Command", script).Output()
 		if err != nil {
+			return "", fmt.Errorf("file picker failed: %w", err)
+		}
+		path := strings.TrimSpace(string(out))
+		if path == "" {
 			return "", nil // cancelled
 		}
-		return strings.TrimSpace(string(out)), nil
+		return path, nil
 	}
 
 	return "", fmt.Errorf("file picker not supported on this OS")
@@ -963,9 +995,9 @@ func pickDir(title, initialDir string) (string, error) {
 		return strings.TrimSpace(string(out)), nil
 
 	case "windows":
-		ps := "powershell"
-		if _, err := exec.LookPath(ps); err != nil {
-			return "", fmt.Errorf("powershell not found")
+		ps, err := windowsPowerShellPath()
+		if err != nil {
+			return "", err
 		}
 
 		q := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
@@ -978,9 +1010,13 @@ func pickDir(title, initialDir string) (string, error) {
 
 		out, err := exec.Command(ps, "-NoProfile", "-Command", script).Output()
 		if err != nil {
-			return "", nil
+			return "", fmt.Errorf("directory picker failed: %w", err)
 		}
-		return strings.TrimSpace(string(out)), nil
+		path := strings.TrimSpace(string(out))
+		if path == "" {
+			return "", nil // cancelled
+		}
+		return path, nil
 	}
 
 	return "", fmt.Errorf("directory picker not supported on this OS")
@@ -1040,9 +1076,9 @@ func pickSaveFile(title, initialPath string) (string, error) {
 		return strings.TrimSpace(string(out)), nil
 
 	case "windows":
-		ps := "powershell"
-		if _, err := exec.LookPath(ps); err != nil {
-			return "", fmt.Errorf("powershell not found")
+		ps, err := windowsPowerShellPath()
+		if err != nil {
+			return "", err
 		}
 
 		q := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
@@ -1060,9 +1096,13 @@ func pickSaveFile(title, initialPath string) (string, error) {
 
 		out, err := exec.Command(ps, "-NoProfile", "-Command", script).Output()
 		if err != nil {
-			return "", nil
+			return "", fmt.Errorf("save-file picker failed: %w", err)
 		}
-		return strings.TrimSpace(string(out)), nil
+		path := strings.TrimSpace(string(out))
+		if path == "" {
+			return "", nil // cancelled
+		}
+		return path, nil
 	}
 
 	return "", fmt.Errorf("save-file picker not supported on this OS")

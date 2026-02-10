@@ -1,4 +1,4 @@
-name: Release
+name: Build Releases
 
 on:
   push:
@@ -7,33 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-            ext: ""
-            cross: false
-          - os: ubuntu-24.04-arm
-            goos: linux
-            goarch: arm64
-            ext: ""
-            cross: false
-          - os: macos-latest
-            goos: darwin
-            goarch: arm64
-            ext: ""
-            cross: false
-          - os: windows-latest
-            goos: windows
-            goarch: amd64
-            ext: ".exe"
-            cross: false
-
-    runs-on: ${{ matrix.os }}
-
+  build-linux-amd64:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout blocknet-miner
         uses: actions/checkout@v4
@@ -44,82 +19,204 @@ jobs:
           repository: blocknetprivacy/blocknet
           path: blocknet
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.22'
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build blocknet (Unix)
-        if: matrix.goos != 'windows'
-        working-directory: blocknet
+      - name: Build blocknet
         run: |
-          cd crypto-rs && cargo build --release
-          cd ..
-          CGO_ENABLED=1 go build -o blocknet .
-
-      - name: Build blocknet (Windows)
-        if: matrix.goos == 'windows'
-        working-directory: blocknet
-        shell: bash
-        run: |
-          cd crypto-rs && cargo build --release
-          cd ..
-          CGO_ENABLED=1 go build -o blocknet.exe .
+          cd blocknet/crypto-rs && cargo build --release
+          cd .. && CGO_ENABLED=1 go build -ldflags="-s -w" -o blocknet .
 
       - name: Build blocknet-miner
-        env:
-          CGO_ENABLED: "0"
-        shell: bash
-        run: |
-          go build -o blocknet-miner${{ matrix.ext }} ./cmd/blocknet-miner
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o blocknet-miner ./cmd/blocknet-miner
 
-      - name: Package release (Unix)
-        if: matrix.goos != 'windows'
+      - name: Package
         run: |
           mkdir -p dist
           cp blocknet-miner dist/
           cp blocknet/blocknet dist/blocknetd
-          chmod +x dist/blocknetd dist/blocknet-miner
-          ARCHIVE_NAME="blocknet-miner-${{ matrix.goos }}-${{ matrix.goarch }}"
-          cd dist && tar -czvf "../${ARCHIVE_NAME}.tar.gz" *
+          chmod +x dist/*
+          cd dist && tar -czvf ../blocknet-miner-linux-amd64.tar.gz *
 
-      - name: Package release (Windows)
-        if: matrix.goos == 'windows'
-        shell: bash
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blocknet-miner-linux-amd64
+          path: blocknet-miner-linux-amd64.tar.gz
+
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout blocknet-miner
+        uses: actions/checkout@v4
+
+      - name: Checkout blocknet
+        uses: actions/checkout@v4
+        with:
+          repository: blocknetprivacy/blocknet
+          path: blocknet
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build blocknet
+        run: |
+          cd blocknet/crypto-rs && cargo build --release
+          cd .. && CGO_ENABLED=1 go build -ldflags="-s -w" -o blocknet .
+
+      - name: Build blocknet-miner
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o blocknet-miner ./cmd/blocknet-miner
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp blocknet-miner dist/
+          cp blocknet/blocknet dist/blocknetd
+          chmod +x dist/*
+          cd dist && tar -czvf ../blocknet-miner-linux-arm64.tar.gz *
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blocknet-miner-linux-arm64
+          path: blocknet-miner-linux-arm64.tar.gz
+
+  build-macos-arm64:
+    runs-on: macos-14
+    steps:
+      - name: Checkout blocknet-miner
+        uses: actions/checkout@v4
+
+      - name: Checkout blocknet
+        uses: actions/checkout@v4
+        with:
+          repository: blocknetprivacy/blocknet
+          path: blocknet
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build blocknet
+        run: |
+          cd blocknet/crypto-rs && cargo build --release
+          cd .. && CGO_ENABLED=1 go build -ldflags="-s -w" -o blocknet .
+
+      - name: Build blocknet-miner
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o blocknet-miner ./cmd/blocknet-miner
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp blocknet-miner dist/
+          cp blocknet/blocknet dist/blocknetd
+          chmod +x dist/*
+          cd dist && tar -czvf ../blocknet-miner-darwin-arm64.tar.gz *
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blocknet-miner-darwin-arm64
+          path: blocknet-miner-darwin-arm64.tar.gz
+
+  build-macos-amd64:
+    runs-on: macos-15
+    steps:
+      - name: Checkout blocknet-miner
+        uses: actions/checkout@v4
+
+      - name: Checkout blocknet
+        uses: actions/checkout@v4
+        with:
+          repository: blocknetprivacy/blocknet
+          path: blocknet
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build blocknet
+        run: |
+          cd blocknet/crypto-rs && cargo build --release
+          cd .. && CGO_ENABLED=1 go build -ldflags="-s -w" -o blocknet .
+
+      - name: Build blocknet-miner
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o blocknet-miner ./cmd/blocknet-miner
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp blocknet-miner dist/
+          cp blocknet/blocknet dist/blocknetd
+          chmod +x dist/*
+          cd dist && tar -czvf ../blocknet-miner-darwin-amd64.tar.gz *
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blocknet-miner-darwin-amd64
+          path: blocknet-miner-darwin-amd64.tar.gz
+
+  build-windows-amd64:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout blocknet
+        uses: actions/checkout@v4
+        with:
+          repository: blocknetprivacy/blocknet
+          path: blocknet
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-rust
+            mingw-w64-x86_64-go
+            zip
+
+      - name: Build blocknet
+        run: |
+          cd blocknet/crypto-rs && cargo build --release
+          cd .. && CGO_ENABLED=1 go build -ldflags="-s -w" -o blocknet.exe .
+
+      - name: Build blocknet-miner
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o blocknet-miner.exe ./cmd/blocknet-miner
+
+      - name: Package
         run: |
           mkdir -p dist
           cp blocknet-miner.exe dist/
           cp blocknet/blocknet.exe dist/blocknetd.exe
-          ARCHIVE_NAME="blocknet-miner-${{ matrix.goos }}-${{ matrix.goarch }}"
-          cd dist && 7z a "../${ARCHIVE_NAME}.zip" *
+          cd dist && zip -q ../blocknet-miner-windows-amd64.zip *
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: blocknet-miner-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: |
-            *.tar.gz
-            *.zip
+          name: blocknet-miner-windows-amd64
+          path: blocknet-miner-windows-amd64.zip
 
   release:
-    needs: build
+    needs: [build-linux-amd64, build-linux-arm64, build-macos-arm64, build-macos-amd64, build-windows-amd64]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
-
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: releases
           merge-multiple: true
 
-      - name: Create release
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/*
+          files: releases/*
           generate_release_notes: true

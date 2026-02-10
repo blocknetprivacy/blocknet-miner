@@ -1,7 +1,6 @@
 # blocknet-miner
 A desktop-friendly launcher for the Blocknet daemon.
 
-Goal (MVP): solo mining + wallet visibility without using a terminal.
 
 ## How it works
 - `blocknet-miner` starts a bundled daemon binary in the background.
